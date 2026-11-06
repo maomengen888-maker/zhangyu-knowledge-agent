@@ -6,6 +6,15 @@ type ChatRequest = {
 
 const DEFAULT_DIFY_API_BASE_URL = "https://api.dify.ai/v1";
 
+function isChatRequest(value: unknown): value is ChatRequest {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+
+  const payload = value as Record<string, unknown>;
+  return ["query", "userId", "conversationId"].every(
+    (field) => !(field in payload) || typeof payload[field] === "string",
+  );
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.DIFY_API_KEY?.trim();
   const baseUrl = (process.env.DIFY_API_BASE_URL || DEFAULT_DIFY_API_BASE_URL).replace(/\/$/, "");
@@ -20,10 +29,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let payload: ChatRequest;
+  let payload: unknown;
   try {
-    payload = (await request.json()) as ChatRequest;
+    payload = await request.json();
   } catch {
+    return Response.json({ error: "请求格式不正确。" }, { status: 400 });
+  }
+
+  if (!isChatRequest(payload)) {
     return Response.json({ error: "请求格式不正确。" }, { status: 400 });
   }
 
